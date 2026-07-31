@@ -43,6 +43,7 @@ export interface CandidateItem {
   candidate_id: number;
   name: string;
   github: GithubProfile | null;
+  resume_filename?: string | null;
   match: MatchResult | null;
 }
 
@@ -75,6 +76,7 @@ export function CandidateRankCard({
 }) {
   const match = item.match;
   const github = item.github;
+  const hasResume = match?.source === "resume" || match?.source === "both";
   const reasons = topReasons(match?.explanation?.quality_breakdown);
 
   return (
@@ -108,17 +110,34 @@ export function CandidateRankCard({
                 resume + code
               </span>
             )}
+            {match?.source === "resume" && (
+              <span className="shrink-0 rounded-full bg-signal-500/15 px-2 py-0.5 text-[10px] font-medium text-signal-400">
+                resume only
+              </span>
+            )}
           </div>
-          {github && (
+          {github ? (
             <p className="mt-0.5 truncate text-xs text-mist-400">
               {github.public_repos} repos · {github.followers} followers ·{" "}
               {Object.keys(github.languages || {}).slice(0, 3).join(", ") || "no primary language"}
             </p>
+          ) : (
+            item.resume_filename && (
+              <p className="mt-0.5 truncate text-xs text-mist-400">📄 {item.resume_filename}</p>
+            )
           )}
         </div>
 
         <div className="flex shrink-0 items-center gap-4">
-          <ScoreRing score={match?.code_verified_score ?? null} label="JD Match" size={52} delay={0.1} />
+          {hasResume && (
+            <ScoreRing score={match?.resume_match_score ?? null} label="Resume Match" size={52} delay={0.05} />
+          )}
+          <ScoreRing
+            score={match?.code_verified_score ?? null}
+            label="Code-Verified"
+            size={52}
+            delay={0.1}
+          />
           <ScoreRing score={match?.quality_score ?? null} label="Quality" size={52} delay={0.2} />
           <ScoreRing
             score={

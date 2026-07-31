@@ -37,6 +37,7 @@ class CandidateListItem(BaseModel):
     name: str
     created_at: datetime
     github: GithubProfileOut | None = None
+    resume_filename: str | None = None
     match: MatchResultOut | None = None
 
     model_config = {"from_attributes": True}

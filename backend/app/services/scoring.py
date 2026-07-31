@@ -108,11 +108,18 @@ def _calibrate_similarity(raw: float, low: float = 0.05, high: float = 0.55) -> 
     return (raw - low) / (high - low)
 
 
-def compute_code_verified_score(jd_text: str, profile: GithubProfile) -> tuple[float, str]:
-    corpus = build_candidate_corpus(profile.bio, profile.languages or {}, profile.top_repos or [])
-    similarity, method = semantic_similarity(jd_text, corpus)
+def compute_text_match_score(jd_text: str, candidate_text: str) -> tuple[float, str]:
+    """The shared JD-to-text semantic matcher. Used for both a GitHub
+    profile's corpus (Code-Verified Match) and raw resume text (Resume
+    Match) -- one matching pipeline, two text sources, per the SRS."""
+    similarity, method = semantic_similarity(jd_text, candidate_text)
     calibrated = _calibrate_similarity(similarity)
     return round(calibrated * 100, 1), method
+
+
+def compute_code_verified_score(jd_text: str, profile: GithubProfile) -> tuple[float, str]:
+    corpus = build_candidate_corpus(profile.bio, profile.languages or {}, profile.top_repos or [])
+    return compute_text_match_score(jd_text, corpus)
 
 
 # (feature_key, weight, description)
@@ -165,10 +172,14 @@ def compute_overall_rank(
     code_verified_score: float | None,
     quality_score: float | None,
     offer_acceptance_probability: float | None = None,
+    resume_match_score: float | None = None,
 ) -> float:
+    match_scores = [s for s in (code_verified_score, resume_match_score) if s is not None]
+    match_component = sum(match_scores) / len(match_scores) if match_scores else None
+
     parts: list[tuple[float, float]] = []
-    if code_verified_score is not None:
-        parts.append((code_verified_score, 0.55))
+    if match_component is not None:
+        parts.append((match_component, 0.55))
     if quality_score is not None:
         parts.append((quality_score, 0.30))
     if offer_acceptance_probability is not None:

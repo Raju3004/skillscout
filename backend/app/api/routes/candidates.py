@@ -99,7 +99,7 @@ def recompute_score(
     match.code_verified_score = code_verified_score
     match.offer_acceptance_probability = offer_acceptance_probability
     match.overall_rank_score = compute_overall_rank(
-        code_verified_score, quality_score, offer_acceptance_probability
+        code_verified_score, quality_score, offer_acceptance_probability, match.resume_match_score
     )
     match.explanation = {
         "summary": build_written_summary(

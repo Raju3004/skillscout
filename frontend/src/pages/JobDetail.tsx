@@ -32,6 +32,9 @@ export default function JobDetail() {
   const [sortKey, setSortKey] = useState<SortKey>("overall_rank_score");
   const [loaded, setLoaded] = useState(false);
   const [explainTarget, setExplainTarget] = useState<CandidateItem | null>(null);
+  const [resumeFiles, setResumeFiles] = useState<File[]>([]);
+  const [resumeBusy, setResumeBusy] = useState(false);
+  const [resumeMessage, setResumeMessage] = useState("");
 
   const loadJob = async () => {
     const res = await api.get(`/jobs/${id}`);
@@ -78,6 +81,41 @@ export default function JobDetail() {
       setMessage(err?.response?.data?.detail || "Discovery failed.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onUploadResumes = async (e: FormEvent) => {
+    e.preventDefault();
+    if (resumeFiles.length === 0) return;
+    setResumeBusy(true);
+    setResumeMessage("");
+    try {
+      const form = new FormData();
+      resumeFiles.forEach((f) => form.append("files", f));
+      const res = await api.post(`/jobs/${id}/resumes`, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const results = res.data.results as {
+        filename: string;
+        candidate_name: string | null;
+        linked_to_github: boolean;
+        error: string | null;
+      }[];
+      const ok = results.filter((r) => !r.error);
+      const failed = results.filter((r) => r.error);
+      const linked = ok.filter((r) => r.linked_to_github).length;
+      let msg = `Parsed ${ok.length} resume${ok.length === 1 ? "" : "s"}`;
+      if (linked > 0) msg += `, ${linked} linked to an existing GitHub match`;
+      if (failed.length > 0) {
+        msg += `. Skipped: ${failed.map((r) => `${r.filename} (${r.error})`).join(", ")}`;
+      }
+      setResumeMessage(msg);
+      setResumeFiles([]);
+      await loadCandidates();
+    } catch (err: any) {
+      setResumeMessage(err?.response?.data?.detail || "Resume upload failed.");
+    } finally {
+      setResumeBusy(false);
     }
   };
 
@@ -155,6 +193,41 @@ export default function JobDetail() {
             className="mt-3 text-sm text-mist-400"
           >
             {message}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
+      <form onSubmit={onUploadResumes} className="glass mt-4 flex flex-wrap items-end gap-3 rounded-xl p-4">
+        <div className="min-w-[240px] flex-1">
+          <label className="mb-1.5 block text-xs font-medium text-mist-300">
+            Upload resumes (PDF / DOCX) for this role
+          </label>
+          <input
+            type="file"
+            multiple
+            accept=".pdf,.docx,.txt"
+            onChange={(e) => setResumeFiles(Array.from(e.target.files ?? []))}
+            className="block w-full text-sm text-mist-300 file:mr-3 file:rounded-lg file:border-0 file:bg-ink-800 file:px-3.5 file:py-2 file:text-sm file:font-medium file:text-mist-200 hover:file:bg-ink-700"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={resumeBusy || resumeFiles.length === 0}
+          className="rounded-lg border border-signal-500/40 bg-signal-500/15 px-5 py-2.5 text-sm font-semibold text-signal-400 transition hover:bg-signal-500/25 disabled:opacity-50"
+        >
+          {resumeBusy ? "Parsing…" : `Upload ${resumeFiles.length || ""} resume${resumeFiles.length === 1 ? "" : "s"}`.trim()}
+        </button>
+      </form>
+
+      <AnimatePresence>
+        {resumeMessage && (
+          <motion.p
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mt-3 text-sm text-mist-400"
+          >
+            {resumeMessage}
           </motion.p>
         )}
       </AnimatePresence>

@@ -31,3 +31,16 @@ class DiscoverResponse(BaseModel):
     errors: list[DiscoverError]
     rate_limited: bool
     rate_limit_reset_at: datetime | None = None
+
+
+class ResumeUploadResult(BaseModel):
+    filename: str
+    candidate_id: int | None = None
+    candidate_name: str | None = None
+    resume_match_score: float | None = None
+    linked_to_github: bool = False
+    error: str | None = None
+
+
+class ResumeUploadResponse(BaseModel):
+    results: list[ResumeUploadResult]
