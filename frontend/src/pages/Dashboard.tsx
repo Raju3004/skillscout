@@ -1,3 +1,4 @@
+import { Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "../components/Logo";
 
@@ -18,12 +19,8 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-6 py-16 text-center">
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-verified-400">Step 1 complete</p>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight">Auth &amp; database are live.</h1>
-        <p className="mt-3 text-mist-400">
-          Job descriptions, GitHub discovery, and the ranked dashboard land next.
-        </p>
+      <main>
+        <Outlet />
       </main>
     </div>
   );
