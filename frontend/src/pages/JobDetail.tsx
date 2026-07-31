@@ -147,6 +147,27 @@ export default function JobDetail() {
     [selectedIds, candidates]
   );
 
+  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+
+  const onExport = async (format: "csv" | "pdf") => {
+    setExporting(format);
+    try {
+      const res = await api.get(`/jobs/${id}/export/${format}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `skillscout-${job?.title.replace(/\s+/g, "_").toLowerCase() ?? "shortlist"}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setMessage("Export failed.");
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const sorted = useMemo(() => {
     return [...candidates].sort((a, b) => {
       const av = a.match?.[sortKey] ?? 0;
@@ -274,27 +295,47 @@ export default function JobDetail() {
         </div>
       )}
 
-      <div className="mt-8 flex items-center justify-between">
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-mist-300">
           Ranked candidates {candidates.length > 0 && `(${candidates.length})`}
         </h2>
-        {candidates.length > 1 && (
-          <div className="flex items-center gap-1 rounded-lg border border-ink-700 p-1">
-            {SORT_OPTIONS.map((opt) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {candidates.length > 0 && (
+            <div className="flex items-center gap-1 rounded-lg border border-ink-700 p-1">
               <button
-                key={opt.key}
-                onClick={() => setSortKey(opt.key)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                  sortKey === opt.key
-                    ? "bg-verified-500 text-ink-950"
-                    : "text-mist-400 hover:text-mist-200"
-                }`}
+                onClick={() => onExport("csv")}
+                disabled={exporting !== null}
+                className="rounded-md px-3 py-1 text-xs font-medium text-mist-400 transition hover:text-mist-100 disabled:opacity-50"
               >
-                Sort: {opt.label}
+                {exporting === "csv" ? "Exporting…" : "Export CSV"}
               </button>
-            ))}
-          </div>
-        )}
+              <button
+                onClick={() => onExport("pdf")}
+                disabled={exporting !== null}
+                className="rounded-md px-3 py-1 text-xs font-medium text-mist-400 transition hover:text-mist-100 disabled:opacity-50"
+              >
+                {exporting === "pdf" ? "Exporting…" : "Export PDF"}
+              </button>
+            </div>
+          )}
+          {candidates.length > 1 && (
+            <div className="flex items-center gap-1 rounded-lg border border-ink-700 p-1">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  onClick={() => setSortKey(opt.key)}
+                  className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                    sortKey === opt.key
+                      ? "bg-verified-500 text-ink-950"
+                      : "text-mist-400 hover:text-mist-200"
+                  }`}
+                >
+                  Sort: {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 space-y-3">

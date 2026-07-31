@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -21,6 +22,7 @@ from app.schemas.jobs import (
 )
 from app.services.diversity import compute_diversity_stats
 from app.services.document_parser import DocumentParseError, extract_text
+from app.services.export import generate_csv, generate_pdf
 from app.services.explain import build_written_summary
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
 from app.services.resume_parser import extract_candidate_name, extract_github_username
@@ -332,10 +334,7 @@ def upload_resumes(
     return ResumeUploadResponse(results=results)
 
 
-@router.get("/{job_id}/candidates", response_model=list[CandidateListItem])
-def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    job = _get_owned_job(job_id, db, current_user)
-
+def _ranked_candidates(job: JobDescription, db: Session) -> list[CandidateListItem]:
     matches = db.query(MatchResult).filter(MatchResult.job_description_id == job.id).all()
     items: list[CandidateListItem] = []
     for match in matches:
@@ -365,6 +364,12 @@ def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: Us
     return items
 
 
+@router.get("/{job_id}/candidates", response_model=list[CandidateListItem])
+def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = _get_owned_job(job_id, db, current_user)
+    return _ranked_candidates(job, db)
+
+
 @router.get("/{job_id}/diversity", response_model=DiversityStats)
 def get_diversity_stats(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     job = _get_owned_job(job_id, db, current_user)
@@ -379,3 +384,29 @@ def get_diversity_stats(job_id: int, db: Session = Depends(get_db), current_user
     )
 
     return compute_diversity_stats(candidates, matches, profiles)
+
+
+@router.get("/{job_id}/export/csv")
+def export_csv(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = _get_owned_job(job_id, db, current_user)
+    items = _ranked_candidates(job, db)
+    content = generate_csv(job, items)
+    filename = f"skillscout-{job.title.replace(' ', '_').lower()}.csv"
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/{job_id}/export/pdf")
+def export_pdf(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = _get_owned_job(job_id, db, current_user)
+    items = _ranked_candidates(job, db)
+    content = generate_pdf(job, items)
+    filename = f"skillscout-{job.title.replace(' ', '_').lower()}.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
