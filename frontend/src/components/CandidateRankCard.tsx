@@ -68,11 +68,17 @@ export function CandidateRankCard({
   rank,
   index,
   onExplain,
+  selected = false,
+  onToggleSelect,
+  selectionDisabled = false,
 }: {
   item: CandidateItem;
   rank: number;
   index: number;
   onExplain: (item: CandidateItem) => void;
+  selected?: boolean;
+  onToggleSelect?: (id: number) => void;
+  selectionDisabled?: boolean;
 }) {
   const match = item.match;
   const github = item.github;
@@ -84,9 +90,21 @@ export function CandidateRankCard({
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
-      className="glass group relative rounded-xl p-4 transition hover:border-verified-500/30"
+      className={`glass group relative rounded-xl p-4 transition hover:border-verified-500/30 ${
+        selected ? "border-verified-500/50 ring-1 ring-verified-500/30" : ""
+      }`}
     >
       <div className="flex items-center gap-4">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!selected && selectionDisabled}
+            onChange={() => onToggleSelect(item.candidate_id)}
+            className="h-4 w-4 shrink-0 rounded border-ink-600 bg-ink-900 accent-[--color-verified-500] disabled:opacity-30"
+            title={!selected && selectionDisabled ? "Compare up to 4 candidates at a time" : "Select to compare"}
+          />
+        )}
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-800 font-mono text-xs font-semibold text-mist-300">
           {rank}
         </div>

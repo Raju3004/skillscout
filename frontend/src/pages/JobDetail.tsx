@@ -5,6 +5,9 @@ import { api } from "../lib/api";
 import { CandidateRankCard, type CandidateItem } from "../components/CandidateRankCard";
 import { StatTile } from "../components/StatTile";
 import { ExplainModal } from "../components/ExplainModal";
+import { CompareModal } from "../components/CompareModal";
+
+const MAX_COMPARE = 4;
 
 interface Job {
   id: number;
@@ -35,6 +38,8 @@ export default function JobDetail() {
   const [resumeFiles, setResumeFiles] = useState<File[]>([]);
   const [resumeBusy, setResumeBusy] = useState(false);
   const [resumeMessage, setResumeMessage] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   const loadJob = async () => {
     const res = await api.get(`/jobs/${id}`);
@@ -118,6 +123,19 @@ export default function JobDetail() {
       setResumeBusy(false);
     }
   };
+
+  const toggleSelect = (candidateId: number) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(candidateId)) return prev.filter((id) => id !== candidateId);
+      if (prev.length >= MAX_COMPARE) return prev;
+      return [...prev, candidateId];
+    });
+  };
+
+  const selectedItems = useMemo(
+    () => selectedIds.map((sid) => candidates.find((c) => c.candidate_id === sid)).filter(Boolean) as CandidateItem[],
+    [selectedIds, candidates]
+  );
 
   const sorted = useMemo(() => {
     return [...candidates].sort((a, b) => {
@@ -279,11 +297,42 @@ export default function JobDetail() {
             rank={i + 1}
             index={i}
             onExplain={setExplainTarget}
+            selected={selectedIds.includes(c.candidate_id)}
+            onToggleSelect={toggleSelect}
+            selectionDisabled={selectedIds.length >= MAX_COMPARE}
           />
         ))}
       </div>
 
+      <AnimatePresence>
+        {selectedIds.length >= 2 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+          >
+            <button
+              onClick={() => setCompareOpen(true)}
+              className="glass flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-mist-100 shadow-xl hover:border-verified-500/40"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-verified-500 text-xs font-bold text-ink-950">
+                {selectedIds.length}
+              </span>
+              Compare selected candidates
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ExplainModal item={explainTarget} onClose={() => setExplainTarget(null)} />
+      {compareOpen && (
+        <CompareModal
+          items={selectedItems}
+          onClose={() => setCompareOpen(false)}
+          onRemove={(cid) => setSelectedIds((prev) => prev.filter((id) => id !== cid))}
+        />
+      )}
     </div>
   );
 }
