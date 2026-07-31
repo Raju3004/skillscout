@@ -44,3 +44,13 @@ class ResumeUploadResult(BaseModel):
 
 class ResumeUploadResponse(BaseModel):
     results: list[ResumeUploadResult]
+
+
+class DiversityStats(BaseModel):
+    total_candidates: int
+    source_breakdown: dict[str, int]
+    limited_data_count: int
+    limited_data_pct: float
+    quality_band_distribution: dict[str, int]
+    top_languages: list[dict]
+    disclaimer: str

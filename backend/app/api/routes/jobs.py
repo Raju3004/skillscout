@@ -10,7 +10,16 @@ from app.models.match_result import MatchResult
 from app.models.resume import Resume
 from app.models.user import User
 from app.schemas.candidates import CandidateListItem
-from app.schemas.jobs import DiscoverError, DiscoverRequest, DiscoverResponse, JobDescriptionOut, ResumeUploadResponse, ResumeUploadResult
+from app.schemas.jobs import (
+    DiscoverError,
+    DiscoverRequest,
+    DiscoverResponse,
+    DiversityStats,
+    JobDescriptionOut,
+    ResumeUploadResponse,
+    ResumeUploadResult,
+)
+from app.services.diversity import compute_diversity_stats
 from app.services.document_parser import DocumentParseError, extract_text
 from app.services.explain import build_written_summary
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
@@ -354,3 +363,19 @@ def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: Us
 
     items.sort(key=lambda c: c.match.overall_rank_score if c.match else 0, reverse=True)
     return items
+
+
+@router.get("/{job_id}/diversity", response_model=DiversityStats)
+def get_diversity_stats(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = _get_owned_job(job_id, db, current_user)
+
+    matches = db.query(MatchResult).filter(MatchResult.job_description_id == job.id).all()
+    candidate_ids = [m.candidate_id for m in matches]
+    candidates = db.query(Candidate).filter(Candidate.id.in_(candidate_ids)).all() if candidate_ids else []
+    profiles = (
+        db.query(GithubProfile).filter(GithubProfile.candidate_id.in_(candidate_ids)).all()
+        if candidate_ids
+        else []
+    )
+
+    return compute_diversity_stats(candidates, matches, profiles)

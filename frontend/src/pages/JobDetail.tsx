@@ -6,6 +6,7 @@ import { CandidateRankCard, type CandidateItem } from "../components/CandidateRa
 import { StatTile } from "../components/StatTile";
 import { ExplainModal } from "../components/ExplainModal";
 import { CompareModal } from "../components/CompareModal";
+import { DiversityCard } from "../components/DiversityCard";
 
 const MAX_COMPARE = 4;
 
@@ -40,6 +41,7 @@ export default function JobDetail() {
   const [resumeMessage, setResumeMessage] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
+  const [diversityStats, setDiversityStats] = useState<any>(null);
 
   const loadJob = async () => {
     const res = await api.get(`/jobs/${id}`);
@@ -52,10 +54,16 @@ export default function JobDetail() {
     setLoaded(true);
   };
 
+  const loadDiversity = async () => {
+    const res = await api.get(`/jobs/${id}/diversity`);
+    setDiversityStats(res.data);
+  };
+
   useEffect(() => {
     setLoaded(false);
     loadJob();
     loadCandidates();
+    loadDiversity();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -82,6 +90,7 @@ export default function JobDetail() {
         setMessage(`Discovered ${res.data.discovered}, updated ${res.data.updated}.`);
       }
       await loadCandidates();
+      await loadDiversity();
     } catch (err: any) {
       setMessage(err?.response?.data?.detail || "Discovery failed.");
     } finally {
@@ -117,6 +126,7 @@ export default function JobDetail() {
       setResumeMessage(msg);
       setResumeFiles([]);
       await loadCandidates();
+      await loadDiversity();
     } catch (err: any) {
       setResumeMessage(err?.response?.data?.detail || "Resume upload failed.");
     } finally {
@@ -255,6 +265,12 @@ export default function JobDetail() {
           <StatTile label="Candidates found" value={stats.count} />
           <StatTile label="Avg overall score" value={stats.avg} decimals={1} />
           <StatTile label="Top score" value={stats.top} decimals={1} />
+        </div>
+      )}
+
+      {diversityStats && (
+        <div className="mt-4">
+          <DiversityCard stats={diversityStats} />
         </div>
       )}
 
