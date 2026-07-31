@@ -10,6 +10,7 @@ from app.models.match_result import MatchResult
 from app.models.resume import Resume
 from app.models.user import User
 from app.schemas.candidates import CandidateDetail
+from app.services.explain import build_written_summary
 from app.services.scoring import (
     compute_code_verified_score,
     compute_offer_acceptance,
@@ -101,6 +102,16 @@ def recompute_score(
         code_verified_score, quality_score, offer_acceptance_probability
     )
     match.explanation = {
+        "summary": build_written_summary(
+            candidate_name=candidate.name,
+            code_verified_score=code_verified_score,
+            quality_score=quality_score,
+            offer_acceptance_probability=offer_acceptance_probability,
+            quality_breakdown=quality_breakdown,
+            acceptance_breakdown=acceptance_breakdown,
+            profile=github_profile,
+            data_limited=github_profile.data_limited if github_profile else False,
+        ),
         "quality_breakdown": quality_breakdown,
         "acceptance_breakdown": acceptance_breakdown,
         "semantic_method": semantic_method,

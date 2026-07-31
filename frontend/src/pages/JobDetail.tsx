@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { api } from "../lib/api";
 import { CandidateRankCard, type CandidateItem } from "../components/CandidateRankCard";
 import { StatTile } from "../components/StatTile";
+import { ExplainModal } from "../components/ExplainModal";
 
 interface Job {
   id: number;
@@ -30,6 +31,7 @@ export default function JobDetail() {
   const [message, setMessage] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("overall_rank_score");
   const [loaded, setLoaded] = useState(false);
+  const [explainTarget, setExplainTarget] = useState<CandidateItem | null>(null);
 
   const loadJob = async () => {
     const res = await api.get(`/jobs/${id}`);
@@ -198,9 +200,17 @@ export default function JobDetail() {
           </div>
         )}
         {sorted.map((c, i) => (
-          <CandidateRankCard key={c.candidate_id} item={c} rank={i + 1} index={i} />
+          <CandidateRankCard
+            key={c.candidate_id}
+            item={c}
+            rank={i + 1}
+            index={i}
+            onExplain={setExplainTarget}
+          />
         ))}
       </div>
+
+      <ExplainModal item={explainTarget} onClose={() => setExplainTarget(null)} />
     </div>
   );
 }

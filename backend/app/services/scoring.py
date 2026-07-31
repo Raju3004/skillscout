@@ -94,10 +94,25 @@ def compute_quality_score(profile: GithubProfile) -> tuple[float, dict]:
     return score, breakdown
 
 
+def _calibrate_similarity(raw: float, low: float = 0.05, high: float = 0.55) -> float:
+    """Sentence-embedding cosine similarity between differently-worded but
+    topically related text rarely exceeds ~0.5-0.6, even for a strong match.
+    Rescaling the observed [low, high] range to [0, 1] keeps the score
+    intuitive without changing the underlying (real, computed) similarity
+    or its ranking -- this is a display calibration, not a fabrication.
+    """
+    if raw <= low:
+        return 0.0
+    if raw >= high:
+        return 1.0
+    return (raw - low) / (high - low)
+
+
 def compute_code_verified_score(jd_text: str, profile: GithubProfile) -> tuple[float, str]:
     corpus = build_candidate_corpus(profile.bio, profile.languages or {}, profile.top_repos or [])
     similarity, method = semantic_similarity(jd_text, corpus)
-    return round(similarity * 100, 1), method
+    calibrated = _calibrate_similarity(similarity)
+    return round(calibrated * 100, 1), method
 
 
 # (feature_key, weight, description)

@@ -9,6 +9,7 @@ export interface QualityFeature {
 }
 
 export interface MatchExplanation {
+  summary?: string;
   quality_breakdown?: Record<string, QualityFeature>;
   acceptance_breakdown?: Record<string, QualityFeature>;
   semantic_method?: string;
@@ -65,10 +66,12 @@ export function CandidateRankCard({
   item,
   rank,
   index,
+  onExplain,
 }: {
   item: CandidateItem;
   rank: number;
   index: number;
+  onExplain: (item: CandidateItem) => void;
 }) {
   const match = item.match;
   const github = item.github;
@@ -143,16 +146,24 @@ export function CandidateRankCard({
           </div>
         </div>
 
-        {github?.profile_url && (
-          <a
-            href={github.profile_url}
-            target="_blank"
-            rel="noreferrer"
-            className="shrink-0 text-xs font-medium text-verified-400 hover:text-verified-300"
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <button
+            onClick={() => onExplain(item)}
+            className="rounded-lg border border-ink-700 px-2.5 py-1 text-xs font-medium text-mist-300 transition hover:border-verified-500/40 hover:text-verified-400"
           >
-            GitHub ↗
-          </a>
-        )}
+            Explain ▸
+          </button>
+          {github?.profile_url && (
+            <a
+              href={github.profile_url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-medium text-verified-400 hover:text-verified-300"
+            >
+              GitHub ↗
+            </a>
+          )}
+        </div>
       </div>
 
       {reasons.length > 0 && (

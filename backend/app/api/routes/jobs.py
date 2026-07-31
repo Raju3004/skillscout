@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.candidates import CandidateListItem
 from app.schemas.jobs import DiscoverError, DiscoverRequest, DiscoverResponse, JobDescriptionOut
 from app.services.document_parser import DocumentParseError, extract_text
+from app.services.explain import build_written_summary
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
 from app.services.scoring import (
     compute_code_verified_score,
@@ -179,7 +180,19 @@ def discover_candidates(
                 "Score reflects only what's publicly available."
             )
 
+        summary = build_written_summary(
+            candidate_name=candidate.name,
+            code_verified_score=code_verified_score,
+            quality_score=quality_score,
+            offer_acceptance_probability=offer_acceptance_probability,
+            quality_breakdown=quality_breakdown,
+            acceptance_breakdown=acceptance_breakdown,
+            profile=profile_row,
+            data_limited=profile_data.data_limited,
+        )
+
         explanation = {
+            "summary": summary,
             "quality_breakdown": quality_breakdown,
             "acceptance_breakdown": acceptance_breakdown,
             "semantic_method": semantic_method,
