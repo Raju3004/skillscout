@@ -12,6 +12,7 @@ from app.schemas.candidates import CandidateListItem
 from app.schemas.jobs import DiscoverError, DiscoverRequest, DiscoverResponse, JobDescriptionOut
 from app.services.document_parser import DocumentParseError, extract_text
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
+from app.services.scoring import compute_code_verified_score, compute_overall_rank, compute_quality_score
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -134,28 +135,47 @@ def discover_candidates(
             existing_profile.top_repos = profile_data.top_repos
             existing_profile.activity_features = profile_data.activity_features
             existing_profile.data_limited = profile_data.data_limited
+            profile_row = existing_profile
             updated += 1
         else:
             candidate = Candidate(name=profile_data.username)
             db.add(candidate)
             db.flush()
-            db.add(
-                GithubProfile(
-                    candidate_id=candidate.id,
-                    username=profile_data.username,
-                    profile_url=profile_data.profile_url,
-                    avatar_url=profile_data.avatar_url,
-                    bio=profile_data.bio,
-                    public_repos=profile_data.public_repos,
-                    followers=profile_data.followers,
-                    account_created_at=profile_data.account_created_at,
-                    languages=profile_data.languages,
-                    top_repos=profile_data.top_repos,
-                    activity_features=profile_data.activity_features,
-                    data_limited=profile_data.data_limited,
-                )
+            profile_row = GithubProfile(
+                candidate_id=candidate.id,
+                username=profile_data.username,
+                profile_url=profile_data.profile_url,
+                avatar_url=profile_data.avatar_url,
+                bio=profile_data.bio,
+                public_repos=profile_data.public_repos,
+                followers=profile_data.followers,
+                account_created_at=profile_data.account_created_at,
+                languages=profile_data.languages,
+                top_repos=profile_data.top_repos,
+                activity_features=profile_data.activity_features,
+                data_limited=profile_data.data_limited,
             )
+            db.add(profile_row)
             discovered += 1
+
+        db.flush()
+
+        quality_score, quality_breakdown = compute_quality_score(profile_row)
+        code_verified_score, semantic_method = compute_code_verified_score(job.raw_text, profile_row)
+        overall = compute_overall_rank(code_verified_score, quality_score)
+
+        notes = []
+        if profile_data.data_limited:
+            notes.append(
+                "Limited GitHub data: few or no public repositories found. "
+                "Score reflects only what's publicly available."
+            )
+
+        explanation = {
+            "quality_breakdown": quality_breakdown,
+            "semantic_method": semantic_method,
+            "notes": notes,
+        }
 
         match = (
             db.query(MatchResult)
@@ -163,17 +183,16 @@ def discover_candidates(
             .first()
         )
         if not match:
-            db.add(
-                MatchResult(
-                    job_description_id=job.id,
-                    candidate_id=candidate.id,
-                    source="github",
-                    data_limited=profile_data.data_limited,
-                )
-            )
+            match = MatchResult(job_description_id=job.id, candidate_id=candidate.id, source="github")
+            db.add(match)
         elif match.source == "resume":
             match.source = "both"
-            match.data_limited = match.data_limited or profile_data.data_limited
+
+        match.quality_score = quality_score
+        match.code_verified_score = code_verified_score
+        match.overall_rank_score = overall
+        match.explanation = explanation
+        match.data_limited = profile_data.data_limited
 
     client.close()
     db.commit()

@@ -40,3 +40,14 @@ class CandidateListItem(BaseModel):
     match: MatchResultOut | None = None
 
     model_config = {"from_attributes": True}
+
+
+class CandidateDetail(BaseModel):
+    candidate_id: int
+    name: str
+    created_at: datetime
+    github: GithubProfileOut | None = None
+    resume_filename: str | None = None
+    match: MatchResultOut | None = None
+
+    model_config = {"from_attributes": True}
