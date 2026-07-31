@@ -100,6 +100,52 @@ def compute_code_verified_score(jd_text: str, profile: GithubProfile) -> tuple[f
     return round(similarity * 100, 1), method
 
 
+# (feature_key, weight, description)
+ACCEPTANCE_WEIGHTS: list[tuple[str, float, str]] = [
+    ("role_fit", 0.35, "How closely the role matches their demonstrated skills"),
+    ("growth_signal", 0.25, "Recent, active building suggests openness to a new challenge"),
+    ("reachability", 0.25, "Lower profile visibility usually means fewer competing offers"),
+    ("profile_stability", 0.15, "Established enough on GitHub to be a credible, stable hire"),
+]
+
+# Never claim certainty either direction -- this is an estimate from public
+# signals, not a guarantee (Honesty over Hype).
+ACCEPTANCE_FLOOR = 0.05
+ACCEPTANCE_CEILING = 0.95
+
+
+def compute_offer_acceptance(code_verified_score: float, profile: GithubProfile) -> tuple[float, dict]:
+    """Estimated probability [0,1] a candidate would engage with/accept this
+    role, derived entirely from public GitHub signals. This is a heuristic
+    proxy, not a model trained on real offer outcomes -- there is no such
+    labeled data available, so we don't pretend otherwise.
+    """
+    features = profile.activity_features or {}
+
+    raw = {
+        "role_fit": max(0.0, min(1.0, code_verified_score / 100)),
+        "growth_signal": _recency_score(features.get("most_recent_push_at")),
+        "reachability": 1.0 - _log_scale(profile.followers or 0, 50_000),
+        "profile_stability": _account_maturity_score(profile.account_created_at),
+    }
+
+    breakdown = {}
+    total = 0.0
+    for key, weight, description in ACCEPTANCE_WEIGHTS:
+        normalized = raw.get(key, 0.0)
+        contribution = normalized * weight
+        total += contribution
+        breakdown[key] = {
+            "value": round(normalized, 3),
+            "weight": weight,
+            "contribution": round(contribution * 100, 1),
+            "description": description,
+        }
+
+    probability = max(ACCEPTANCE_FLOOR, min(ACCEPTANCE_CEILING, total))
+    return round(probability, 3), breakdown
+
+
 def compute_overall_rank(
     code_verified_score: float | None,
     quality_score: float | None,

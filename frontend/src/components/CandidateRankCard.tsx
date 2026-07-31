@@ -10,6 +10,7 @@ export interface QualityFeature {
 
 export interface MatchExplanation {
   quality_breakdown?: Record<string, QualityFeature>;
+  acceptance_breakdown?: Record<string, QualityFeature>;
   semantic_method?: string;
   notes?: string[];
 }
@@ -113,9 +114,19 @@ export function CandidateRankCard({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center gap-5">
-          <ScoreRing score={match?.code_verified_score ?? null} label="JD Match" size={56} delay={0.1} />
-          <ScoreRing score={match?.quality_score ?? null} label="Quality" size={56} delay={0.2} />
+        <div className="flex shrink-0 items-center gap-4">
+          <ScoreRing score={match?.code_verified_score ?? null} label="JD Match" size={52} delay={0.1} />
+          <ScoreRing score={match?.quality_score ?? null} label="Quality" size={52} delay={0.2} />
+          <ScoreRing
+            score={
+              match?.offer_acceptance_probability != null
+                ? match.offer_acceptance_probability * 100
+                : null
+            }
+            label="Accept Odds"
+            size={52}
+            delay={0.3}
+          />
           <div className="flex flex-col items-center gap-1">
             <div
               className={`flex h-14 w-14 items-center justify-center rounded-full font-mono text-lg font-bold ${

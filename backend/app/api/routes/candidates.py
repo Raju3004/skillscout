@@ -10,7 +10,12 @@ from app.models.match_result import MatchResult
 from app.models.resume import Resume
 from app.models.user import User
 from app.schemas.candidates import CandidateDetail
-from app.services.scoring import compute_code_verified_score, compute_overall_rank, compute_quality_score
+from app.services.scoring import (
+    compute_code_verified_score,
+    compute_offer_acceptance,
+    compute_overall_rank,
+    compute_quality_score,
+)
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
@@ -72,12 +77,17 @@ def recompute_score(
     notes = []
     quality_score = match.quality_score
     code_verified_score = match.code_verified_score
+    offer_acceptance_probability = match.offer_acceptance_probability
     quality_breakdown = (match.explanation or {}).get("quality_breakdown", {})
+    acceptance_breakdown = (match.explanation or {}).get("acceptance_breakdown", {})
     semantic_method = (match.explanation or {}).get("semantic_method", "none")
 
     if github_profile:
         quality_score, quality_breakdown = compute_quality_score(github_profile)
         code_verified_score, semantic_method = compute_code_verified_score(job.raw_text, github_profile)
+        offer_acceptance_probability, acceptance_breakdown = compute_offer_acceptance(
+            code_verified_score, github_profile
+        )
         if github_profile.data_limited:
             notes.append(
                 "Limited GitHub data: few or no public repositories found. "
@@ -86,11 +96,13 @@ def recompute_score(
 
     match.quality_score = quality_score
     match.code_verified_score = code_verified_score
+    match.offer_acceptance_probability = offer_acceptance_probability
     match.overall_rank_score = compute_overall_rank(
-        code_verified_score, quality_score, match.offer_acceptance_probability
+        code_verified_score, quality_score, offer_acceptance_probability
     )
     match.explanation = {
         "quality_breakdown": quality_breakdown,
+        "acceptance_breakdown": acceptance_breakdown,
         "semantic_method": semantic_method,
         "notes": notes,
     }

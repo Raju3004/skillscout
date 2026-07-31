@@ -12,7 +12,12 @@ from app.schemas.candidates import CandidateListItem
 from app.schemas.jobs import DiscoverError, DiscoverRequest, DiscoverResponse, JobDescriptionOut
 from app.services.document_parser import DocumentParseError, extract_text
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
-from app.services.scoring import compute_code_verified_score, compute_overall_rank, compute_quality_score
+from app.services.scoring import (
+    compute_code_verified_score,
+    compute_offer_acceptance,
+    compute_overall_rank,
+    compute_quality_score,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -162,7 +167,10 @@ def discover_candidates(
 
         quality_score, quality_breakdown = compute_quality_score(profile_row)
         code_verified_score, semantic_method = compute_code_verified_score(job.raw_text, profile_row)
-        overall = compute_overall_rank(code_verified_score, quality_score)
+        offer_acceptance_probability, acceptance_breakdown = compute_offer_acceptance(
+            code_verified_score, profile_row
+        )
+        overall = compute_overall_rank(code_verified_score, quality_score, offer_acceptance_probability)
 
         notes = []
         if profile_data.data_limited:
@@ -173,6 +181,7 @@ def discover_candidates(
 
         explanation = {
             "quality_breakdown": quality_breakdown,
+            "acceptance_breakdown": acceptance_breakdown,
             "semantic_method": semantic_method,
             "notes": notes,
         }
@@ -190,6 +199,7 @@ def discover_candidates(
 
         match.quality_score = quality_score
         match.code_verified_score = code_verified_score
+        match.offer_acceptance_probability = offer_acceptance_probability
         match.overall_rank_score = overall
         match.explanation = explanation
         match.data_limited = profile_data.data_limited
