@@ -20,6 +20,11 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
+    # sentence-transformers + torch need more RAM than a free-tier host
+    # typically gives a web service. Set to false there to fall back to the
+    # lighter TF-IDF matcher instead of crashing the whole process.
+    USE_EMBEDDING_MODEL: bool = True
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

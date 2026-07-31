@@ -13,6 +13,8 @@ import threading
 
 import numpy as np
 
+from app.core.config import get_settings
+
 _model = None
 _model_lock = threading.Lock()
 _model_load_failed = False
@@ -22,6 +24,8 @@ MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 def _get_model():
     global _model, _model_load_failed
+    if not get_settings().USE_EMBEDDING_MODEL:
+        return None
     if _model is not None or _model_load_failed:
         return _model
     with _model_lock:
