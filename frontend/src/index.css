@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  --color-ink-950: #05070a;
+  --color-ink-900: #0a0e14;
+  --color-ink-850: #0e131b;
+  --color-ink-800: #131a24;
+  --color-ink-700: #1b2330;
+  --color-ink-600: #29334533;
+  --color-mist-400: #6b7789;
+  --color-mist-300: #93a0b3;
+  --color-mist-200: #c2ccd9;
+  --color-mist-100: #e7ecf3;
+
+  --color-verified-500: #34e2a3;
+  --color-verified-400: #5cf0b8;
+  --color-verified-600: #1fb884;
+
+  --color-signal-500: #7c6cf0;
+  --color-signal-400: #9c8ffb;
+  --color-signal-600: #5f4fd6;
+
+  --color-amber-500: #f0b545;
+
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pop: pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop {
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink-950);
+  color: var(--color-mist-100);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-verified-500);
+  color: var(--color-ink-950);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-mist-400); }
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-mist-100) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-mist-100) 4%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.glass {
+  background: color-mix(in oklab, var(--color-ink-850) 82%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in oklab, var(--color-mist-100) 8%, transparent);
+}
