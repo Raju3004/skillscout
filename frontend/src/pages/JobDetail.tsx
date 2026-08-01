@@ -42,6 +42,7 @@ export default function JobDetail() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
   const [diversityStats, setDiversityStats] = useState<any>(null);
+  const [shortlistBusyId, setShortlistBusyId] = useState<number | null>(null);
 
   const loadJob = async () => {
     const res = await api.get(`/jobs/${id}`);
@@ -134,6 +135,28 @@ export default function JobDetail() {
     }
   };
 
+  const toggleShortlist = async (item: CandidateItem) => {
+    setShortlistBusyId(item.candidate_id);
+    const nextState = !item.is_shortlisted;
+    setCandidates((prev) =>
+      prev.map((c) => (c.candidate_id === item.candidate_id ? { ...c, is_shortlisted: nextState } : c))
+    );
+    try {
+      if (nextState) {
+        await api.post(`/jobs/${id}/shortlist/${item.candidate_id}`);
+      } else {
+        await api.delete(`/jobs/${id}/shortlist/${item.candidate_id}`);
+      }
+    } catch {
+      setCandidates((prev) =>
+        prev.map((c) => (c.candidate_id === item.candidate_id ? { ...c, is_shortlisted: !nextState } : c))
+      );
+      setMessage("Could not update shortlist. Try again.");
+    } finally {
+      setShortlistBusyId(null);
+    }
+  };
+
   const toggleSelect = (candidateId: number) => {
     setSelectedIds((prev) => {
       if (prev.includes(candidateId)) return prev.filter((id) => id !== candidateId);
@@ -147,16 +170,21 @@ export default function JobDetail() {
     [selectedIds, candidates]
   );
 
-  const [exporting, setExporting] = useState<"csv" | "pdf" | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
 
-  const onExport = async (format: "csv" | "pdf") => {
-    setExporting(format);
+  const onExport = async (format: "csv" | "pdf", shortlistOnly = false) => {
+    const key = shortlistOnly ? `${format}-shortlist` : format;
+    setExporting(key);
     try {
-      const res = await api.get(`/jobs/${id}/export/${format}`, { responseType: "blob" });
+      const res = await api.get(`/jobs/${id}/export/${format}`, {
+        responseType: "blob",
+        params: shortlistOnly ? { shortlist_only: true } : undefined,
+      });
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const a = document.createElement("a");
       a.href = url;
-      a.download = `skillscout-${job?.title.replace(/\s+/g, "_").toLowerCase() ?? "shortlist"}.${format}`;
+      const suffix = shortlistOnly ? "-shortlist" : "";
+      a.download = `skillscout-${job?.title.replace(/\s+/g, "_").toLowerCase() ?? "shortlist"}${suffix}.${format}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -167,6 +195,8 @@ export default function JobDetail() {
       setExporting(null);
     }
   };
+
+  const shortlistCount = useMemo(() => candidates.filter((c) => c.is_shortlisted).length, [candidates]);
 
   const sorted = useMemo(() => {
     return [...candidates].sort((a, b) => {
@@ -300,6 +330,25 @@ export default function JobDetail() {
           Ranked candidates {candidates.length > 0 && `(${candidates.length})`}
         </h2>
         <div className="flex flex-wrap items-center gap-2">
+          {shortlistCount > 0 && (
+            <div className="flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-1">
+              <span className="px-2 text-xs font-medium text-amber-400">★ Shortlist ({shortlistCount})</span>
+              <button
+                onClick={() => onExport("csv", true)}
+                disabled={exporting !== null}
+                className="rounded-md px-2.5 py-1 text-xs font-medium text-amber-300 transition hover:text-amber-100 disabled:opacity-50"
+              >
+                {exporting === "csv-shortlist" ? "Exporting…" : "CSV"}
+              </button>
+              <button
+                onClick={() => onExport("pdf", true)}
+                disabled={exporting !== null}
+                className="rounded-md px-2.5 py-1 text-xs font-medium text-amber-300 transition hover:text-amber-100 disabled:opacity-50"
+              >
+                {exporting === "pdf-shortlist" ? "Exporting…" : "PDF"}
+              </button>
+            </div>
+          )}
           {candidates.length > 0 && (
             <div className="flex items-center gap-1 rounded-lg border border-ink-700 p-1">
               <button
@@ -357,6 +406,8 @@ export default function JobDetail() {
             selected={selectedIds.includes(c.candidate_id)}
             onToggleSelect={toggleSelect}
             selectionDisabled={selectedIds.length >= MAX_COMPARE}
+            onToggleShortlist={toggleShortlist}
+            shortlistBusy={shortlistBusyId === c.candidate_id}
           />
         ))}
       </div>

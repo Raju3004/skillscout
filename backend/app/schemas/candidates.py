@@ -39,6 +39,7 @@ class CandidateListItem(BaseModel):
     github: GithubProfileOut | None = None
     resume_filename: str | None = None
     match: MatchResultOut | None = None
+    is_shortlisted: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -50,5 +51,6 @@ class CandidateDetail(BaseModel):
     github: GithubProfileOut | None = None
     resume_filename: str | None = None
     match: MatchResultOut | None = None
+    is_shortlisted: bool = False
 
     model_config = {"from_attributes": True}

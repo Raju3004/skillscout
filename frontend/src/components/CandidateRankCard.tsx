@@ -45,6 +45,7 @@ export interface CandidateItem {
   github: GithubProfile | null;
   resume_filename?: string | null;
   match: MatchResult | null;
+  is_shortlisted?: boolean;
 }
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -71,6 +72,8 @@ export function CandidateRankCard({
   selected = false,
   onToggleSelect,
   selectionDisabled = false,
+  onToggleShortlist,
+  shortlistBusy = false,
 }: {
   item: CandidateItem;
   rank: number;
@@ -79,6 +82,8 @@ export function CandidateRankCard({
   selected?: boolean;
   onToggleSelect?: (id: number) => void;
   selectionDisabled?: boolean;
+  onToggleShortlist?: (item: CandidateItem) => void;
+  shortlistBusy?: boolean;
 }) {
   const match = item.match;
   const github = item.github;
@@ -184,12 +189,28 @@ export function CandidateRankCard({
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <button
-            onClick={() => onExplain(item)}
-            className="rounded-lg border border-ink-700 px-2.5 py-1 text-xs font-medium text-mist-300 transition hover:border-verified-500/40 hover:text-verified-400"
-          >
-            Explain ▸
-          </button>
+          <div className="flex items-center gap-1.5">
+            {onToggleShortlist && (
+              <button
+                onClick={() => onToggleShortlist(item)}
+                disabled={shortlistBusy}
+                title={item.is_shortlisted ? "Remove from shortlist" : "Save to shortlist"}
+                className={`rounded-lg border px-2 py-1 text-sm transition disabled:opacity-50 ${
+                  item.is_shortlisted
+                    ? "border-amber-500/50 bg-amber-500/15 text-amber-400"
+                    : "border-ink-700 text-mist-400 hover:border-amber-500/40 hover:text-amber-400"
+                }`}
+              >
+                {item.is_shortlisted ? "★" : "☆"}
+              </button>
+            )}
+            <button
+              onClick={() => onExplain(item)}
+              className="rounded-lg border border-ink-700 px-2.5 py-1 text-xs font-medium text-mist-300 transition hover:border-verified-500/40 hover:text-verified-400"
+            >
+              Explain ▸
+            </button>
+          </div>
           {github?.profile_url && (
             <a
               href={github.profile_url}

@@ -9,6 +9,7 @@ from app.models.github_profile import GithubProfile
 from app.models.job_description import JobDescription
 from app.models.match_result import MatchResult
 from app.models.resume import Resume
+from app.models.shortlist import Shortlist
 from app.models.user import User
 from app.schemas.candidates import CandidateListItem
 from app.schemas.jobs import (
@@ -334,8 +335,14 @@ def upload_resumes(
     return ResumeUploadResponse(results=results)
 
 
-def _ranked_candidates(job: JobDescription, db: Session) -> list[CandidateListItem]:
+def _ranked_candidates(job: JobDescription, db: Session, user_id: int) -> list[CandidateListItem]:
     matches = db.query(MatchResult).filter(MatchResult.job_description_id == job.id).all()
+    shortlisted_ids = {
+        s.candidate_id
+        for s in db.query(Shortlist)
+        .filter(Shortlist.job_description_id == job.id, Shortlist.user_id == user_id)
+        .all()
+    }
     items: list[CandidateListItem] = []
     for match in matches:
         candidate = db.query(Candidate).filter(Candidate.id == match.candidate_id).first()
@@ -357,6 +364,7 @@ def _ranked_candidates(job: JobDescription, db: Session) -> list[CandidateListIt
                 github=github_profile,
                 resume_filename=resume.filename if resume else None,
                 match=match,
+                is_shortlisted=candidate.id in shortlisted_ids,
             )
         )
 
@@ -367,7 +375,61 @@ def _ranked_candidates(job: JobDescription, db: Session) -> list[CandidateListIt
 @router.get("/{job_id}/candidates", response_model=list[CandidateListItem])
 def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     job = _get_owned_job(job_id, db, current_user)
-    return _ranked_candidates(job, db)
+    return _ranked_candidates(job, db, current_user.id)
+
+
+@router.post("/{job_id}/shortlist/{candidate_id}", status_code=201)
+def add_to_shortlist(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = _get_owned_job(job_id, db, current_user)
+    match = (
+        db.query(MatchResult)
+        .filter(MatchResult.job_description_id == job.id, MatchResult.candidate_id == candidate_id)
+        .first()
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="Candidate not found on this job")
+
+    existing = (
+        db.query(Shortlist)
+        .filter(
+            Shortlist.job_description_id == job.id,
+            Shortlist.candidate_id == candidate_id,
+            Shortlist.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not existing:
+        db.add(Shortlist(user_id=current_user.id, job_description_id=job.id, candidate_id=candidate_id))
+        db.commit()
+    return {"is_shortlisted": True}
+
+
+@router.delete("/{job_id}/shortlist/{candidate_id}", status_code=200)
+def remove_from_shortlist(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = _get_owned_job(job_id, db, current_user)
+    db.query(Shortlist).filter(
+        Shortlist.job_description_id == job.id,
+        Shortlist.candidate_id == candidate_id,
+        Shortlist.user_id == current_user.id,
+    ).delete()
+    db.commit()
+    return {"is_shortlisted": False}
+
+
+@router.get("/{job_id}/shortlist", response_model=list[CandidateListItem])
+def get_shortlist(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = _get_owned_job(job_id, db, current_user)
+    return [c for c in _ranked_candidates(job, db, current_user.id) if c.is_shortlisted]
 
 
 @router.get("/{job_id}/diversity", response_model=DiversityStats)
@@ -387,11 +449,19 @@ def get_diversity_stats(job_id: int, db: Session = Depends(get_db), current_user
 
 
 @router.get("/{job_id}/export/csv")
-def export_csv(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def export_csv(
+    job_id: int,
+    shortlist_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     job = _get_owned_job(job_id, db, current_user)
-    items = _ranked_candidates(job, db)
+    items = _ranked_candidates(job, db, current_user.id)
+    if shortlist_only:
+        items = [c for c in items if c.is_shortlisted]
     content = generate_csv(job, items)
-    filename = f"skillscout-{job.title.replace(' ', '_').lower()}.csv"
+    suffix = "-shortlist" if shortlist_only else ""
+    filename = f"skillscout-{job.title.replace(' ', '_').lower()}{suffix}.csv"
     return Response(
         content=content,
         media_type="text/csv",
@@ -400,11 +470,19 @@ def export_csv(job_id: int, db: Session = Depends(get_db), current_user: User = 
 
 
 @router.get("/{job_id}/export/pdf")
-def export_pdf(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def export_pdf(
+    job_id: int,
+    shortlist_only: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     job = _get_owned_job(job_id, db, current_user)
-    items = _ranked_candidates(job, db)
+    items = _ranked_candidates(job, db, current_user.id)
+    if shortlist_only:
+        items = [c for c in items if c.is_shortlisted]
     content = generate_pdf(job, items)
-    filename = f"skillscout-{job.title.replace(' ', '_').lower()}.pdf"
+    suffix = "-shortlist" if shortlist_only else ""
+    filename = f"skillscout-{job.title.replace(' ', '_').lower()}{suffix}.pdf"
     return Response(
         content=content,
         media_type="application/pdf",
