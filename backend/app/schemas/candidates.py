@@ -21,6 +21,7 @@ class GithubProfileOut(BaseModel):
 
 class MatchResultOut(BaseModel):
     source: str
+    status: str = "pending"
     resume_match_score: float | None
     code_verified_score: float | None
     quality_score: float | None

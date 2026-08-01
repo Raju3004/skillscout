@@ -20,6 +20,7 @@ from app.schemas.jobs import (
     JobDescriptionOut,
     ResumeUploadResponse,
     ResumeUploadResult,
+    StatusUpdateRequest,
 )
 from app.services.diversity import compute_diversity_stats
 from app.services.document_parser import DocumentParseError, extract_text
@@ -376,6 +377,60 @@ def _ranked_candidates(job: JobDescription, db: Session, user_id: int) -> list[C
 def list_candidates(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     job = _get_owned_job(job_id, db, current_user)
     return _ranked_candidates(job, db, current_user.id)
+
+
+@router.delete("/{job_id}/candidates/{candidate_id}", status_code=200)
+def remove_candidate_from_job(
+    job_id: int,
+    candidate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Removes this candidate's ranking for this job only. The underlying
+    Candidate/GithubProfile/Resume rows are left intact -- they may be
+    referenced by other jobs, and re-discovering the same GitHub username
+    or re-uploading the same resume brings them straight back."""
+    job = _get_owned_job(job_id, db, current_user)
+    match = (
+        db.query(MatchResult)
+        .filter(MatchResult.job_description_id == job.id, MatchResult.candidate_id == candidate_id)
+        .first()
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="Candidate not found on this job")
+
+    db.query(Shortlist).filter(
+        Shortlist.job_description_id == job.id, Shortlist.candidate_id == candidate_id
+    ).delete()
+    db.delete(match)
+    db.commit()
+    return {"deleted": True}
+
+
+@router.patch("/{job_id}/candidates/{candidate_id}/status", response_model=CandidateListItem)
+def update_candidate_status(
+    job_id: int,
+    candidate_id: int,
+    payload: StatusUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = _get_owned_job(job_id, db, current_user)
+    match = (
+        db.query(MatchResult)
+        .filter(MatchResult.job_description_id == job.id, MatchResult.candidate_id == candidate_id)
+        .first()
+    )
+    if not match:
+        raise HTTPException(status_code=404, detail="Candidate not found on this job")
+
+    match.status = payload.status
+    db.commit()
+
+    updated = next((c for c in _ranked_candidates(job, db, current_user.id) if c.candidate_id == candidate_id), None)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Candidate not found on this job")
+    return updated
 
 
 @router.post("/{job_id}/shortlist/{candidate_id}", status_code=201)

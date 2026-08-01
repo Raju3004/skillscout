@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, candidates, jobs
 from app.core.config import get_settings
-from app.db.session import Base, engine
+from app.db.session import Base, engine, run_lightweight_migrations
 from app.services.embedding_matcher import warm_up
 from app import models  # noqa: F401  (registers models on Base.metadata)
 
@@ -16,6 +16,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    run_lightweight_migrations()
     threading.Thread(target=warm_up, daemon=True).start()
     yield
 

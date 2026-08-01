@@ -18,6 +18,7 @@ export interface MatchExplanation {
 
 export interface MatchResult {
   source: string;
+  status: string;
   resume_match_score: number | null;
   code_verified_score: number | null;
   quality_score: number | null;
@@ -123,6 +124,11 @@ export function CandidateRankCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-medium text-mist-100">{item.name}</span>
+            {match?.status === "passed" && (
+              <span className="shrink-0 rounded-full bg-verified-500/15 px-2 py-0.5 text-[10px] font-medium text-verified-400">
+                ✓ passed
+              </span>
+            )}
             {github?.data_limited && (
               <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-500">
                 limited data

@@ -4,6 +4,10 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class StatusUpdateRequest(BaseModel):
+    status: Literal["pending", "passed"]
+
+
 class JobDescriptionOut(BaseModel):
     id: int
     title: str

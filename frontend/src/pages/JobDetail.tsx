@@ -170,6 +170,49 @@ export default function JobDetail() {
     [selectedIds, candidates]
   );
 
+  const [bulkBusy, setBulkBusy] = useState<"pass" | "delete" | null>(null);
+
+  const onMarkPassedSelected = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkBusy("pass");
+    try {
+      await Promise.all(
+        selectedIds.map((cid) =>
+          api.patch(`/jobs/${id}/candidates/${cid}/status`, { status: "passed" })
+        )
+      );
+      setCandidates((prev) =>
+        prev.map((c) =>
+          selectedIds.includes(c.candidate_id) && c.match
+            ? { ...c, match: { ...c.match, status: "passed" } }
+            : c
+        )
+      );
+      setSelectedIds([]);
+    } catch {
+      setMessage("Could not update status for some candidates.");
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const onDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    const names = selectedItems.map((c) => c.name).join(", ");
+    if (!window.confirm(`Remove ${selectedIds.length} candidate(s) from this role? (${names})`)) return;
+    setBulkBusy("delete");
+    try {
+      await Promise.all(selectedIds.map((cid) => api.delete(`/jobs/${id}/candidates/${cid}`)));
+      setCandidates((prev) => prev.filter((c) => !selectedIds.includes(c.candidate_id)));
+      setSelectedIds([]);
+      await loadDiversity();
+    } catch {
+      setMessage("Could not delete some candidates.");
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
   const [exporting, setExporting] = useState<string | null>(null);
 
   const onExport = async (format: "csv" | "pdf", shortlistOnly = false) => {
@@ -413,22 +456,42 @@ export default function JobDetail() {
       </div>
 
       <AnimatePresence>
-        {selectedIds.length >= 2 && (
+        {selectedIds.length >= 1 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
           >
-            <button
-              onClick={() => setCompareOpen(true)}
-              className="glass flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-mist-100 shadow-xl hover:border-verified-500/40"
-            >
+            <div className="glass flex items-center gap-2 rounded-full px-3 py-2 shadow-xl">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-verified-500 text-xs font-bold text-ink-950">
                 {selectedIds.length}
               </span>
-              Compare selected candidates
-            </button>
+              <span className="pr-1 text-xs text-mist-400">selected</span>
+              <div className="h-4 w-px bg-ink-700" />
+              {selectedIds.length >= 2 && (
+                <button
+                  onClick={() => setCompareOpen(true)}
+                  className="rounded-full px-3 py-1.5 text-xs font-semibold text-mist-100 transition hover:text-verified-400"
+                >
+                  Compare
+                </button>
+              )}
+              <button
+                onClick={onMarkPassedSelected}
+                disabled={bulkBusy !== null}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-mist-100 transition hover:text-verified-400 disabled:opacity-50"
+              >
+                {bulkBusy === "pass" ? "Marking…" : "✓ Mark Passed"}
+              </button>
+              <button
+                onClick={onDeleteSelected}
+                disabled={bulkBusy !== null}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-[#f0847d] transition hover:text-[#f0a49d] disabled:opacity-50"
+              >
+                {bulkBusy === "delete" ? "Removing…" : "Delete"}
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

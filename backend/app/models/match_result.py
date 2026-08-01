@@ -15,6 +15,7 @@ class MatchResult(Base):
     resume_id: Mapped[int] = mapped_column(ForeignKey("resumes.id"), nullable=True)
 
     source: Mapped[str] = mapped_column(String(20), default="github")  # github | resume | both
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | passed
 
     resume_match_score: Mapped[float] = mapped_column(Float, nullable=True)
     code_verified_score: Mapped[float] = mapped_column(Float, nullable=True)
