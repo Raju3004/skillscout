@@ -14,6 +14,9 @@ QUALITY_LABELS = {
     "language_diversity": "range across multiple languages",
     "community": "a sizeable GitHub following",
     "account_maturity": "a long-standing, established account",
+    "experience": "years of experience listed on their resume",
+    "certifications": "professional certifications/licenses listed",
+    "education": "their stated education level",
 }
 
 ACCEPTANCE_LABELS = {

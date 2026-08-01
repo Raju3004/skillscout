@@ -28,6 +28,7 @@ from app.services.export import generate_csv, generate_pdf
 from app.services.explain import build_written_summary
 from app.services.github_client import GithubNotFoundError, GithubRateLimitError, get_github_client
 from app.services.resume_parser import extract_candidate_name, extract_github_username
+from app.services.resume_quality import compute_resume_quality_score
 from app.services.scoring import (
     compute_code_verified_score,
     compute_offer_acceptance,
@@ -309,12 +310,27 @@ def upload_resumes(
 
         match.resume_id = resume.id
         match.resume_match_score = resume_match_score
+
+        explanation = dict(match.explanation or {})
+        resume_note = f"Resume text matches this JD at {resume_match_score:.0f}/100."
+
+        has_github = db.query(GithubProfile).filter(GithubProfile.candidate_id == candidate.id).first()
+        if not has_github:
+            resume_quality_score, resume_quality_breakdown = compute_resume_quality_score(text)
+            match.quality_score = resume_quality_score
+            explanation["quality_breakdown"] = resume_quality_breakdown
+            notes = list(explanation.get("notes") or [])
+            notes.append(
+                "Quality Score is estimated from resume text (experience, certifications, education "
+                "mentioned) -- there's no GitHub activity to verify against for this candidate, so this "
+                "signal is weaker than a code-based Quality Score."
+            )
+            explanation["notes"] = notes
+
         match.overall_rank_score = compute_overall_rank(
             match.code_verified_score, match.quality_score, match.offer_acceptance_probability, resume_match_score
         )
 
-        explanation = dict(match.explanation or {})
-        resume_note = f"Resume text matches this JD at {resume_match_score:.0f}/100."
         explanation["summary"] = (
             f"{explanation['summary']} {resume_note}" if explanation.get("summary") else resume_note
         )

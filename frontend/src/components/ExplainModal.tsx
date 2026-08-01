@@ -8,6 +8,9 @@ const QUALITY_LABELS: Record<string, string> = {
   language_diversity: "Language diversity",
   community: "Community",
   account_maturity: "Account maturity",
+  experience: "Experience",
+  certifications: "Certifications",
+  education: "Education",
 };
 
 const ACCEPTANCE_LABELS: Record<string, string> = {
